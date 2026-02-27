@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IssueTracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #f8f9fa;
+            --surface: #ffffff;
+            --border: #e2e5e9;
+            --border-hover: #c8cdd4;
+            --text: #1a1d21;
+            --text-secondary: #6b7280;
+            --text-dim: #9ca3af;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --accent-light: #eff6ff;
+            --danger: #dc2626;
+            --danger-light: #fef2f2;
+            --success: #16a34a;
+            --tab-active-bg: #ffffff;
+            --tab-inactive-bg: #f1f3f5;
+            --toolbar-height: 56px;
+            --statusbar-height: 32px;
+            --tab-height: 40px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+            --shadow-lg: 0 10px 30px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.06);
+            --radius: 6px;
+            --radius-lg: 10px;
+        }
+
+        html, body { height: 100%; font-family: 'Inter', sans-serif; font-size: 14px; color: var(--text); background: var(--bg); line-height: 1.5; }
+
+        #app { display: flex; flex-direction: column; height: 100vh; }
+
+        /* ── Toolbar ── */
+        #toolbar {
+            height: var(--toolbar-height);
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 8px;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
+            z-index: 10;
+        }
+
+        #app-brand { display: flex; align-items: center; gap: 8px; margin-right: 12px; }
+        #app-icon { font-size: 22px; line-height: 1; }
+        #app-title-block { display: flex; flex-direction: column; line-height: 1.2; }
+        #app-title { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+        /* v0.1.0 sits under the "I" of IssueTracker, not the icon */
+        #app-version { font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+        .toolbar-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+        .flex-spacer { flex: 1; }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: var(--radius); border: 1px solid var(--border);
+            background: var(--surface); color: var(--text); font-family: 'Inter', sans-serif;
+            font-size: 13px; font-weight: 500; cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            white-space: nowrap; user-select: none;
+        }
+        .btn:hover:not(:disabled) { background: var(--bg); border-color: var(--border-hover); }
+        .btn:active:not(:disabled) { background: #eef0f3; }
+        .btn:disabled { opacity: 0.45; cursor: default; }
+        .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+        .btn-danger { color: var(--danger); border-color: var(--danger); }
+        .btn-danger:hover:not(:disabled) { background: var(--danger-light); }
+        .btn-sm { padding: 3px 8px; font-size: 12px; border-radius: 4px; }
+
+        #btn-warnings.has-warnings {
+            border-color: var(--danger); color: var(--danger);
+            animation: pulse-border 1.8s ease-in-out infinite;
+        }
+        @keyframes pulse-border {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
+            50% { box-shadow: 0 0 0 4px rgba(220,38,38,0); }
+        }
+
+        /* ── Main ── */
+        #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* ── Tab bar ── */
+        #tab-bar {
+            display: flex; align-items: flex-end; padding: 0 16px;
+            background: var(--bg); border-bottom: 1px solid var(--border);
+            flex-shrink: 0; gap: 2px;
+            min-height: calc(var(--tab-height) + 1px);
+            overflow-x: auto;
+        }
+        #tab-bar::-webkit-scrollbar { height: 4px; }
+        #tab-bar::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 2px; }
+
+        .tab {
+            display: flex; align-items: center; gap: 6px; padding: 0 12px;
+            height: var(--tab-height); background: var(--tab-inactive-bg);
+            border: 1px solid var(--border); border-bottom: none;
+            border-radius: var(--radius) var(--radius) 0 0;
+            cursor: pointer; font-size: 13px; font-weight: 500;
+            color: var(--text-secondary); white-space: nowrap;
+            transition: background 0.15s, color 0.15s;
+            position: relative; top: 1px; user-select: none;
+        }
+        .tab:hover:not(.active) { background: #e8eaed; color: var(--text); }
+        .tab.active { background: var(--tab-active-bg); color: var(--text); z-index: 1; }
+        .tab.drag-over { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+        .tab-rename-btn {
+            opacity: 0; transition: opacity 0.15s; background: none; border: none;
+            padding: 1px 3px; border-radius: 3px; cursor: pointer;
+            color: var(--text-secondary); font-size: 11px; line-height: 1;
+        }
+        .tab:hover .tab-rename-btn, .tab.active .tab-rename-btn { opacity: 1; }
+        .tab-rename-btn:hover { background: var(--border); color: var(--text); }
+
+        #no-tabs-msg { padding: 8px 0; font-size: 13px; color: var(--text-dim); }
+
+        /* ── Issue list ── */
+        #content-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+        #issue-panel { flex: 1; overflow-y: auto; padding: 16px; }
+
+        .issue-table {
+            width: 100%; border-collapse: collapse; background: var(--surface);
+            border-radius: var(--radius-lg); overflow: hidden;
+            box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+        }
+        .issue-table th {
+            padding: 9px 12px; text-align: left; font-size: 12px; font-weight: 600;
+            color: var(--text-secondary); background: var(--bg);
+            border-bottom: 1px solid var(--border); user-select: none; white-space: nowrap;
+        }
+        .issue-table th.sortable { cursor: pointer; }
+        .issue-table th.sortable:hover { color: var(--text); background: #eef0f3; }
+        .sort-indicator { font-size: 10px; margin-left: 4px; color: var(--accent); }
+        .issue-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .issue-table tr:last-child td { border-bottom: none; }
+        .issue-table tr.issue-row { cursor: pointer; transition: background 0.1s; }
+        .issue-table tr.issue-row:hover { background: var(--accent-light); }
+        .issue-table tr.issue-row.dragging { opacity: 0.4; }
+
+        .col-id { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); font-weight: 500; white-space: nowrap; }
+        .col-assignee { color: var(--text-secondary); font-size: 13px; white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+        .col-title { font-size: 13px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .col-modified { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+        .col-actions { width: 60px; text-align: right; padding-right: 8px !important; }
+
+        .delete-btn {
+            opacity: 0; transition: opacity 0.15s; background: none;
+            border: 1px solid transparent; padding: 2px 6px; border-radius: 4px;
+            cursor: pointer; color: var(--danger); font-size: 12px; line-height: 1.4;
+        }
+        .issue-row:hover .delete-btn { opacity: 1; }
+        .delete-btn:hover { background: var(--danger-light); border-color: var(--danger); }
+
+        .empty-state { text-align: center; padding: 48px 16px; color: var(--text-dim); font-size: 13px; }
+
+        /* ── Modals ── */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100; padding: 16px; backdrop-filter: blur(2px);
+        }
+        .modal-overlay.hidden { display: none; }
+
+        .modal {
+            background: var(--surface); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg); display: flex; flex-direction: column;
+            max-height: calc(100vh - 32px); width: 100%;
+        }
+        .modal-sm { max-width: 480px; }
+        .modal-lg { max-width: 860px; }
+
+        .modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .modal-title { font-size: 15px; font-weight: 600; color: var(--text); }
+        .modal-close {
+            background: none; border: none; font-size: 18px; cursor: pointer;
+            color: var(--text-secondary); line-height: 1; padding: 2px 6px;
+            border-radius: 4px; transition: background 0.15s;
+        }
+        .modal-close:hover { background: var(--bg); }
+        .modal-body { overflow-y: auto; padding: 20px; flex: 1; }
+        .modal-footer {
+            display: flex; justify-content: flex-end; gap: 8px;
+            padding: 14px 20px; border-top: 1px solid var(--border); flex-shrink: 0;
+        }
+
+        /* ── Form ── */
+        .form-row { display: flex; gap: 12px; margin-bottom: 14px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .form-group label {
+            font-size: 12px; font-weight: 500; color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .form-group input[type="text"] {
+            padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius);
+            font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text);
+            background: var(--surface); transition: border-color 0.15s, box-shadow 0.15s; outline: none;
+        }
+        .form-group input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+        .form-group input[type="text"]:read-only { background: var(--bg); color: var(--text-secondary); cursor: default; }
+
+        .form-error { font-size: 12px; color: var(--danger); margin-bottom: 10px; display: none; }
+        .form-error.visible { display: block; }
+
+        .section-label {
+            font-size: 12px; font-weight: 600; color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; margin-top: 18px;
+        }
+        .section-label:first-child { margin-top: 0; }
+
+        /* ── Comments display ── */
+        #comments-display {
+            background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 12px; max-height: 200px; overflow-y: auto;
+            font-size: 13px; line-height: 1.6; margin-bottom: 14px;
+        }
+        #comments-display.no-comments { color: var(--text-dim); font-style: italic; }
+        #comments-display p { margin-bottom: 8px; }
+        #comments-display p:last-child { margin-bottom: 0; }
+        #comments-display strong { font-weight: 600; color: var(--text-secondary); }
+        #comments-display hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+        #comments-display code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--border); padding: 1px 4px; border-radius: 3px; }
+
+        /* ── Toast editor overrides ── */
+        .toastui-editor-defaultUI { border: 1px solid var(--border) !important; border-radius: var(--radius) !important; }
+        .toastui-editor-toolbar { border-bottom: 1px solid var(--border) !important; background: var(--bg) !important; }
+
+        /* ── Status bar ── */
+        #statusbar {
+            height: var(--statusbar-height); background: var(--surface); border-top: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 16px; gap: 16px;
+            font-size: 12px; color: var(--text-secondary); flex-shrink: 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .sb-label { color: var(--text-dim); }
+        .sb-value { color: var(--text-secondary); }
+
+        /* ── Toast notifications ── */
+        #toast-container {
+            position: fixed; bottom: calc(var(--statusbar-height) + 8px); right: 16px;
+            display: flex; flex-direction: column-reverse; gap: 8px; z-index: 200;
+            pointer-events: none;
+        }
+        .toast {
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 10px 14px; font-size: 13px; box-shadow: var(--shadow-md);
+            pointer-events: auto; max-width: 340px;
+            animation: toast-in 0.2s ease;
+        }
+        .toast.success { border-left: 3px solid var(--success); }
+        .toast.error { border-left: 3px solid var(--danger); }
+        .toast.info { border-left: 3px solid var(--accent); }
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ── Warnings list ── */
+        #warnings-list { display: flex; flex-direction: column; gap: 6px; }
+        .warning-item {
+            padding: 8px 10px; background: var(--danger-light); border: 1px solid #fecaca;
+            border-radius: var(--radius); font-size: 12px; font-family: 'JetBrains Mono', monospace;
+            color: var(--danger); word-break: break-word;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+<div id="app">
+
+    <!-- Toolbar -->
+    <div id="toolbar">
+        <div id="app-brand">
+            <span id="app-icon">📋</span>
+            <div id="app-title-block">
+                <span id="app-title">IssueTracker</span>
+                <span id="app-version">v0.1.0</span>
+            </div>
+        </div>
+        <div class="toolbar-sep"></div>
+        <button class="btn btn-primary" id="btn-new-issue" disabled>＋ New Issue</button>
+        <button class="btn" id="btn-new-status">＋ New Status</button>
+        <button class="btn" id="btn-refresh">↻ Refresh</button>
+        <div class="flex-spacer"></div>
+        <button class="btn" id="btn-warnings" disabled>⚠ Warnings</button>
+    </div>
+
+    <!-- Main -->
+    <div id="main">
+        <div id="tab-bar">
+            <span id="no-tabs-msg" class="hidden">No status folders found</span>
+        </div>
+        <div id="content-area">
+            <div id="issue-panel">
+                <div class="empty-state" id="empty-state">Select or create a status tab to see issues.</div>
+                <table class="issue-table hidden" id="issue-table">
+                    <thead>
+                    <tr>
+                        <th class="sortable" data-col="id">ID <span class="sort-indicator" id="sort-id"></span></th>
+                        <th>Assignee</th>
+                        <th>Title</th>
+                        <th class="sortable" data-col="modified">Modified <span class="sort-indicator" id="sort-modified">▲</span></th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="issue-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status bar -->
+    <div id="statusbar">
+        <span><span class="sb-label">Last refresh: </span><span class="sb-value" id="sb-refresh-time">—</span></span>
+        <span><span class="sb-label">Tabs: </span><span class="sb-value" id="sb-tab-count">0</span></span>
+    </div>
+</div>
+
+<!-- Issue Edit Modal -->
+<div class="modal-overlay hidden" id="issue-modal-overlay">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <span class="modal-title" id="issue-modal-title">Edit Issue</span>
+            <button class="modal-close" id="issue-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row">
+                <div class="form-group" style="max-width:200px">
+                    <label>ID</label>
+                    <input type="text" id="field-id" readonly />
+                </div>
+                <div class="form-group" style="max-width:160px">
+                    <label>Assignee</label>
+                    <input type="text" id="field-assignee" placeholder="UNKNOWN" />
+                </div>
+                <div class="form-group" style="max-width:140px">
+                    <label>Priority</label>
+                    <input type="text" id="field-priority" placeholder="UNKNOWN" />
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:14px">
+                <label>Title</label>
+                <input type="text" id="field-title" placeholder="Issue title" />
+            </div>
+            <div class="form-error" id="issue-form-error"></div>
+            <div class="section-label">Description</div>
+            <div id="editor-description"></div>
+            <div class="section-label">Comments</div>
+            <div id="comments-display" class="no-comments">No comments yet.</div>
+            <div class="section-label">Add Comment</div>
+            <div id="editor-comment"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" id="issue-modal-cancel">Cancel</button>
+            <button class="btn btn-primary" id="issue-modal-save">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- New Issue Modal -->
+<div class="modal-overlay hidden" id="new-issue-modal-overlay">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <span class="modal-title">New Issue</span>
+            <button class="modal-close" id="new-issue-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row">
+                <div class="form-group" style="max-width:200px">
+                    <label>ID <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="new-field-id" placeholder="my-issue-id" />
+                </div>
+                <div class="form-group" style="max-width:160px">
+                    <label>Assignee</label>
+                    <input type="text" id="new-field-assignee" placeholder="UNKNOWN" />
+                </div>
+                <div class="form-group" style="max-width:140px">
+                    <label>Priority</label>
+                    <input type="text" id="new-field-priority" />
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:14px">
+                <label>Title</label>
+                <input type="text" id="new-field-title" placeholder="Issue title" />
+            </div>
+            <div class="form-error" id="new-issue-form-error"></div>
+            <div class="section-label">Description</div>
+            <div id="new-editor-description"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" id="new-issue-modal-cancel">Cancel</button>
+            <button class="btn btn-primary" id="new-issue-modal-save">Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- Warnings Modal -->
+<div class="modal-overlay hidden" id="warnings-modal-overlay">
+    <div class="modal modal-sm">
+        <div class="modal-header">
+            <span class="modal-title">⚠ Warnings</span>
+            <button class="modal-close" id="warnings-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="warnings-list"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="warnings-modal-ok">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm / Prompt Modal (shared) -->
+<div class="modal-overlay hidden" id="confirm-modal-overlay">
+    <div class="modal modal-sm">
+        <div class="modal-header">
+            <span class="modal-title" id="confirm-modal-title">Confirm</span>
+            <button class="modal-close" id="confirm-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="confirm-modal-body"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" id="confirm-modal-cancel">Cancel</button>
+            <button class="btn btn-danger" id="confirm-modal-ok">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<script>
+    'use strict';
+
+    // ── State ─────────────────────────────────────────────────────────────────────
+    const state = {
+        statuses: [],
+        warnings: [],
+        scannedAt: null,
+        activeTab: null,
+        sortCol: 'modified',
+        sortDir: 'asc',
+        // open issue tracking
+        editingIssue: null,   // { id, status, modifiedISO }
+        // editor instances
+        descEditor: null,
+        commentEditor: null,
+        newDescEditor: null,
+    };
+
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    let refreshTimer = null;
+
+    // ── Utilities ─────────────────────────────────────────────────────────────────
+    function esc(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function padZ(n) { return String(n).padStart(2, '0'); }
+
+    function fmtDateTime(d) {
+        return `${d.getFullYear()}-${padZ(d.getMonth()+1)}-${padZ(d.getDate())} ${padZ(d.getHours())}:${padZ(d.getMinutes())}`;
+    }
+
+    // ── Toast notifications ───────────────────────────────────────────────────────
+    function showToast(message, type = 'info', duration = 3500) {
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.textContent = message;
+        document.getElementById('toast-container').appendChild(el);
+        setTimeout(() => el.remove(), duration);
+    }
+
+    // ── API ───────────────────────────────────────────────────────────────────────
+    async function apiGet(path) {
+        const r = await fetch(path);
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error || r.statusText);
+        return json;
+    }
+
+    async function apiPost(path, body) {
+        const r = await fetch(path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error || r.statusText);
+        return json;
+    }
+
+    // ── Confirm dialog ────────────────────────────────────────────────────────────
+    // Returns Promise<true|false>
+    function showConfirm(title, message, okLabel = 'Confirm', okClass = 'btn-danger') {
+        return new Promise(resolve => {
+            document.getElementById('confirm-modal-title').textContent = title;
+            const bodyEl = document.getElementById('confirm-modal-body');
+            bodyEl.innerHTML = '';
+            const p = document.createElement('p');
+            p.style.cssText = 'font-size:14px;line-height:1.6;color:var(--text);';
+            p.textContent = message;
+            bodyEl.appendChild(p);
+
+            const okBtn = document.getElementById('confirm-modal-ok');
+            okBtn.textContent = okLabel;
+            okBtn.className = `btn ${okClass}`;
+            document.getElementById('confirm-modal-cancel').textContent = 'Cancel';
+
+            const overlay = document.getElementById('confirm-modal-overlay');
+            overlay.classList.remove('hidden');
+
+            const finish = val => {
+                overlay.classList.add('hidden');
+                resolve(val);
+            };
+            okBtn.onclick = () => finish(true);
+            document.getElementById('confirm-modal-cancel').onclick = () => finish(false);
+            document.getElementById('confirm-modal-close').onclick = () => finish(false);
+        });
+    }
+
+    // Prompt dialog — returns Promise<string|null>
+    function showPrompt(title, label, defaultVal = '', validate = null) {
+        return new Promise(resolve => {
+            document.getElementById('confirm-modal-title').textContent = title;
+            const bodyEl = document.getElementById('confirm-modal-body');
+            bodyEl.innerHTML = '';
+
+            const labelEl = document.createElement('label');
+            labelEl.style.cssText = 'display:block;font-size:13px;color:var(--text-secondary);margin-bottom:6px;';
+            labelEl.textContent = label;
+
+            const inputEl = document.createElement('input');
+            inputEl.type = 'text';
+            inputEl.value = defaultVal;
+            inputEl.style.cssText = 'width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;';
+
+            const errEl = document.createElement('div');
+            errEl.style.cssText = 'color:var(--danger);font-size:12px;margin-top:5px;min-height:16px;';
+
+            bodyEl.appendChild(labelEl);
+            bodyEl.appendChild(inputEl);
+            bodyEl.appendChild(errEl);
+
+            const okBtn = document.getElementById('confirm-modal-ok');
+            okBtn.textContent = 'OK';
+            okBtn.className = 'btn btn-primary';
+            document.getElementById('confirm-modal-cancel').textContent = 'Cancel';
+
+            const overlay = document.getElementById('confirm-modal-overlay');
+            overlay.classList.remove('hidden');
+            setTimeout(() => inputEl.focus(), 50);
+
+            const tryOk = () => {
+                const val = inputEl.value.trim();
+                if (validate) {
+                    const err = validate(val);
+                    if (err) { errEl.textContent = err; return; }
+                }
+                overlay.classList.add('hidden');
+                resolve(val || null);
+            };
+            const cancel = () => { overlay.classList.add('hidden'); resolve(null); };
+
+            okBtn.onclick = tryOk;
+            document.getElementById('confirm-modal-cancel').onclick = cancel;
+            document.getElementById('confirm-modal-close').onclick = cancel;
+            inputEl.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { e.preventDefault(); tryOk(); }
+                if (e.key === 'Escape') cancel();
+            });
+        });
+    }
+
+    // ── Markdown rendering ────────────────────────────────────────────────────────
+    // We create a single persistent off-screen viewer and call setMarkdown on it.
+    let _mdViewerEl = null;
+    let _mdViewer = null;
+
+    function renderMarkdown(md) {
+        if (!md) return '';
+        if (!_mdViewerEl) {
+            _mdViewerEl = document.createElement('div');
+            _mdViewerEl.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;';
+            document.body.appendChild(_mdViewerEl);
+            _mdViewer = toastui.Editor.factory({ el: _mdViewerEl, viewer: true, initialValue: '' });
+        }
+        _mdViewer.setMarkdown(md);
+        const contents = _mdViewerEl.querySelector('.toastui-editor-contents');
+        return contents ? contents.innerHTML : esc(md);
+    }
+
+    // ── Toast UI Editor helpers ───────────────────────────────────────────────────
+    // Toolbar without the heading button (which exposes H1)
+    const TOOLBAR_NO_HEADING = [
+        ['bold', 'italic', 'strike'],
+        ['hr', 'quote'],
+        ['ul', 'ol', 'task'],
+        ['table', 'link'],
+        ['code', 'codeblock'],
+    ];
+
+    function createEditor(containerEl, initialValue = '', height = '220px') {
+        const editor = new toastui.Editor({
+            el: containerEl,
+            height,
+            initialEditType: 'wysiwyg',
+            previewStyle: 'tab',
+            initialValue,
+            toolbarItems: TOOLBAR_NO_HEADING,
+            hideModeSwitch: false,
+        });
+
+        // Runtime H1 guard: if user types "# " manually, strip it and warn
+        editor.on('change', () => {
+            const md = editor.getMarkdown();
+            if (/^# /m.test(md)) {
+                const cleaned = md.replace(/^# [^\n]*/gm, '').replace(/\n{3,}/g, '\n\n').trimStart();
+                editor.setMarkdown(cleaned, false);
+                showToast('H1 headings are not allowed — they corrupt the issue file structure.', 'error', 5000);
+            }
+        });
+
+        return editor;
+    }
+
+    function hasH1(md) {
+        return /^# /m.test(md);
+    }
+
+    // ── Refresh / Scan ────────────────────────────────────────────────────────────
+    async function doRefresh() {
+        try {
+            const result = await apiGet('/api/scan');
+            const oldStatuses = state.statuses;
+            state.statuses = result.statuses || [];
+            state.warnings = result.warnings || [];
+            state.scannedAt = new Date(result.scannedAt);
+
+            // Handle open modal conflict detection
+            if (state.editingIssue) {
+                await handleOpenIssueRefresh();
+            }
+
+            // Keep active tab if still present; fall back to first
+            const names = state.statuses.map(s => s.name);
+            if (state.activeTab && !names.includes(state.activeTab)) {
+                state.activeTab = names[0] ?? null;
+            } else if (!state.activeTab && names.length > 0) {
+                state.activeTab = names[0];
+            }
+
+            renderTabs();
+            renderIssueList();
+            updateWarningsButton();
+            updateStatusBar();
+        } catch (e) {
+            showToast(`Refresh failed: ${e.message}`, 'error');
+        }
+    }
+
+    async function handleOpenIssueRefresh() {
+        const { id, status, modifiedISO } = state.editingIssue;
+
+        // Find issue in fresh scan data
+        const statusObj = state.statuses.find(s => s.name === status);
+        const diskIssue = statusObj ? statusObj.issues.find(i => i.id === id) : null;
+
+        if (!diskIssue) {
+            showToast(`Issue "${id}" was deleted on disk. The form has been closed.`, 'error', 7000);
+            closeIssueModal(false);
+            return;
+        }
+
+        const diskISO = new Date(diskIssue.modified).toISOString();
+        if (diskISO !== modifiedISO) {
+            const keepEdits = await showConfirm(
+                'File Modified on Disk',
+                `Issue "${id}" was changed on disk since you opened it.\n\nChoose "Keep My Edits" to continue editing (your version will overwrite disk on save), or "Cancel" to reload the disk version.`,
+                'Keep My Edits',
+                'btn-primary'
+            );
+            if (!keepEdits) {
+                openIssueModal(diskIssue);
+            } else {
+                // Update tracked mtime so we don't re-prompt until the next external change
+                state.editingIssue.modifiedISO = diskISO;
+            }
+        }
+    }
+
+    function scheduleAutoRefresh() {
+        clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(async () => {
+            await doRefresh();
+            scheduleAutoRefresh();
+        }, REFRESH_INTERVAL_MS);
+    }
+
+    // ── Tabs ──────────────────────────────────────────────────────────────────────
+    function renderTabs() {
+        const bar = document.getElementById('tab-bar');
+        // Remove all tabs (but keep the no-tabs-msg span)
+        Array.from(bar.children).forEach(c => {
+            if (c.id !== 'no-tabs-msg') c.remove();
+        });
+
+        const noMsg = document.getElementById('no-tabs-msg');
+
+        document.getElementById('btn-new-issue').disabled = !state.activeTab;
+
+        if (state.statuses.length === 0) {
+            noMsg.classList.remove('hidden');
+            return;
+        }
+        noMsg.classList.add('hidden');
+
+        for (const status of state.statuses) {
+            const tab = document.createElement('div');
+            tab.className = 'tab' + (status.name === state.activeTab ? ' active' : '');
+            tab.dataset.name = status.name;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = status.name;
+
+            const renameBtn = document.createElement('button');
+            renameBtn.className = 'tab-rename-btn';
+            renameBtn.title = 'Rename';
+            renameBtn.textContent = '✎';
+            renameBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                onRenameStatus(status.name);
+            });
+
+            tab.appendChild(nameSpan);
+            tab.appendChild(renameBtn);
+
+            tab.addEventListener('click', () => {
+                state.activeTab = status.name;
+                renderTabs();
+                renderIssueList();
+            });
+
+            // Drop target for issue drag
+            tab.addEventListener('dragover', e => { e.preventDefault(); tab.classList.add('drag-over'); });
+            tab.addEventListener('dragleave', () => tab.classList.remove('drag-over'));
+            tab.addEventListener('drop', e => {
+                e.preventDefault();
+                tab.classList.remove('drag-over');
+                try {
+                    const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                    if (data.id && data.fromStatus && data.fromStatus !== status.name) {
+                        onMoveIssue(data.id, data.fromStatus, status.name);
+                    }
+                } catch { /* ignore bad drag data */ }
+            });
+
+            bar.appendChild(tab);
+        }
+    }
+
+    // ── Issue list ────────────────────────────────────────────────────────────────
+    function renderIssueList() {
+        const table = document.getElementById('issue-table');
+        const tbody = document.getElementById('issue-tbody');
+        const emptyState = document.getElementById('empty-state');
+
+        if (!state.activeTab) {
+            table.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            emptyState.textContent = state.statuses.length === 0
+                ? 'No status folders found. Use "＋ New Status" to create one.'
+                : 'Select a tab above.';
+            return;
+        }
+
+        const statusObj = state.statuses.find(s => s.name === state.activeTab);
+        const rawIssues = statusObj ? statusObj.issues || [] : [];
+
+        if (rawIssues.length === 0) {
+            table.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            emptyState.textContent = `No issues in "${state.activeTab}". Click "＋ New Issue" to create one.`;
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+        table.classList.remove('hidden');
+
+        // Sort
+        const issues = [...rawIssues].sort((a, b) => {
+            let av, bv;
+            if (state.sortCol === 'id') {
+                av = a.id.toLowerCase(); bv = b.id.toLowerCase();
+            } else {
+                av = new Date(a.modified).getTime(); bv = new Date(b.modified).getTime();
+            }
+            if (av < bv) return state.sortDir === 'asc' ? -1 : 1;
+            if (av > bv) return state.sortDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        // Update sort indicators
+        document.getElementById('sort-id').textContent =
+            state.sortCol === 'id' ? (state.sortDir === 'asc' ? '▲' : '▼') : '';
+        document.getElementById('sort-modified').textContent =
+            state.sortCol === 'modified' ? (state.sortDir === 'asc' ? '▲' : '▼') : '';
+
+        tbody.innerHTML = '';
+        for (const issue of issues) {
+            const tr = document.createElement('tr');
+            tr.className = 'issue-row';
+            tr.draggable = true;
+
+            const modStr = fmtDateTime(new Date(issue.modified));
+
+            tr.innerHTML = `
+      <td class="col-id">${esc(issue.id)}</td>
+      <td class="col-assignee">${esc(issue.assignee)}</td>
+      <td class="col-title">${esc(issue.title)}</td>
+      <td class="col-modified">${esc(modStr)}</td>
+      <td class="col-actions"><button class="btn btn-sm btn-danger delete-btn" title="Delete issue">✕</button></td>
+    `;
+
+            tr.addEventListener('dblclick', () => openIssueModal(issue));
+
+            tr.querySelector('.delete-btn').addEventListener('click', async e => {
+                e.stopPropagation();
+                const ok = await showConfirm('Delete Issue', `Delete issue "${issue.id}"? This cannot be undone.`, 'Delete');
+                if (ok) await onDeleteIssue(issue.id, issue.status);
+            });
+
+            tr.addEventListener('dragstart', e => {
+                tr.classList.add('dragging');
+                e.dataTransfer.setData('application/json', JSON.stringify({ id: issue.id, fromStatus: issue.status }));
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            tr.addEventListener('dragend', () => tr.classList.remove('dragging'));
+
+            tbody.appendChild(tr);
+        }
+    }
+
+    // Column sort header clicks
+    document.querySelectorAll('#issue-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const col = th.dataset.col;
+            if (state.sortCol === col) {
+                state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                state.sortCol = col;
+                state.sortDir = 'asc';
+            }
+            renderIssueList();
+        });
+    });
+
+    // ── Warnings button ───────────────────────────────────────────────────────────
+    function updateWarningsButton() {
+        const btn = document.getElementById('btn-warnings');
+        const count = state.warnings.length;
+        btn.disabled = count === 0;
+        btn.classList.toggle('has-warnings', count > 0);
+        btn.textContent = count > 0 ? `⚠ Warnings (${count})` : '⚠ Warnings';
+    }
+
+    document.getElementById('btn-warnings').addEventListener('click', () => {
+        const list = document.getElementById('warnings-list');
+        list.innerHTML = '';
+        for (const w of state.warnings) {
+            const d = document.createElement('div');
+            d.className = 'warning-item';
+            d.textContent = w;
+            list.appendChild(d);
+        }
+        document.getElementById('warnings-modal-overlay').classList.remove('hidden');
+    });
+    document.getElementById('warnings-modal-close').addEventListener('click', () =>
+        document.getElementById('warnings-modal-overlay').classList.add('hidden'));
+    document.getElementById('warnings-modal-ok').addEventListener('click', () =>
+        document.getElementById('warnings-modal-overlay').classList.add('hidden'));
+    document.getElementById('warnings-modal-overlay').addEventListener('click', e => {
+        if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+    });
+
+    // ── Status bar ────────────────────────────────────────────────────────────────
+    function updateStatusBar() {
+        document.getElementById('sb-refresh-time').textContent =
+            state.scannedAt ? state.scannedAt.toLocaleString() : '—';
+        document.getElementById('sb-tab-count').textContent = state.statuses.length;
+    }
+
+    // ── Issue modal ───────────────────────────────────────────────────────────────
+    function openIssueModal(issue) {
+        state.editingIssue = {
+            id: issue.id,
+            status: issue.status,
+            modifiedISO: new Date(issue.modified).toISOString(),
+        };
+
+        document.getElementById('issue-modal-title').textContent = `Edit: ${issue.id}`;
+        document.getElementById('field-id').value = issue.id;
+        // Show empty string instead of UNKNOWN so placeholder can show intent
+        document.getElementById('field-assignee').value = issue.assignee === 'UNKNOWN' ? '' : issue.assignee;
+        document.getElementById('field-priority').value = issue.priority === 'UNKNOWN' ? '' : issue.priority;
+        document.getElementById('field-title').value = issue.title === 'UNKNOWN' ? '' : issue.title;
+
+        const errEl = document.getElementById('issue-form-error');
+        errEl.textContent = '';
+        errEl.classList.remove('visible');
+
+        // Render existing comments as HTML (read-only)
+        const commentsEl = document.getElementById('comments-display');
+        if (issue.comments && issue.comments.trim()) {
+            commentsEl.classList.remove('no-comments');
+            commentsEl.innerHTML = renderMarkdown(issue.comments);
+        } else {
+            commentsEl.classList.add('no-comments');
+            commentsEl.textContent = 'No comments yet.';
+        }
+
+        // Destroy old editors and recreate
+        if (state.descEditor) { state.descEditor.destroy(); state.descEditor = null; }
+        if (state.commentEditor) { state.commentEditor.destroy(); state.commentEditor = null; }
+
+        const descEl = document.getElementById('editor-description');
+        descEl.innerHTML = '';
+        state.descEditor = createEditor(descEl, issue.description || '', '200px');
+
+        const commentEl = document.getElementById('editor-comment');
+        commentEl.innerHTML = '';
+        state.commentEditor = createEditor(commentEl, '', '160px');
+
+        // Stash preserved fields in dataset
+        const overlay = document.getElementById('issue-modal-overlay');
+        overlay.dataset.commentHeader = issue.commentHeader || '# Comments';
+        overlay.dataset.existingComments = issue.comments || '';
+
+        overlay.classList.remove('hidden');
+    }
+
+    function closeIssueModal(clearState = true) {
+        document.getElementById('issue-modal-overlay').classList.add('hidden');
+        if (clearState) state.editingIssue = null;
+        if (state.descEditor) { state.descEditor.destroy(); state.descEditor = null; }
+        if (state.commentEditor) { state.commentEditor.destroy(); state.commentEditor = null; }
+    }
+
+    document.getElementById('issue-modal-close').addEventListener('click', () => closeIssueModal());
+    document.getElementById('issue-modal-cancel').addEventListener('click', () => closeIssueModal());
+    document.getElementById('issue-modal-overlay').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeIssueModal();
+    });
+
+    document.getElementById('issue-modal-save').addEventListener('click', async () => {
+        const errEl = document.getElementById('issue-form-error');
+        errEl.classList.remove('visible');
+
+        const assignee = document.getElementById('field-assignee').value.trim() || 'UNKNOWN';
+        const priority = document.getElementById('field-priority').value.trim() || 'UNKNOWN';
+        const title = document.getElementById('field-title').value.trim() || 'UNKNOWN';
+        const description = state.descEditor ? state.descEditor.getMarkdown() : '';
+        const newComment = state.commentEditor ? state.commentEditor.getMarkdown().trim() : '';
+
+        if (hasH1(description)) {
+            errEl.textContent = 'Description must not contain H1 headings (lines starting with "# ").';
+            errEl.classList.add('visible');
+            return;
+        }
+        if (hasH1(newComment)) {
+            errEl.textContent = 'Comment must not contain H1 headings (lines starting with "# ").';
+            errEl.classList.add('visible');
+            return;
+        }
+
+        const overlay = document.getElementById('issue-modal-overlay');
+
+        try {
+            await apiPost('/api/issue/update', {
+                status: state.editingIssue.status,
+                id: state.editingIssue.id,
+                assignee,
+                priority,
+                title,
+                description,
+                commentHeader: overlay.dataset.commentHeader,
+                existingComments: overlay.dataset.existingComments,
+                newComment,
+            });
+            closeIssueModal();
+            showToast('Issue saved.', 'success');
+            await doRefresh();
+        } catch (e) {
+            errEl.textContent = `Save failed: ${e.message}`;
+            errEl.classList.add('visible');
+        }
+    });
+
+    // ── New Issue modal ───────────────────────────────────────────────────────────
+    document.getElementById('btn-new-issue').addEventListener('click', () => {
+        document.getElementById('new-field-id').value = '';
+        document.getElementById('new-field-assignee').value = '';
+        document.getElementById('new-field-priority').value = 'Normal';
+        document.getElementById('new-field-title').value = '';
+
+        const errEl = document.getElementById('new-issue-form-error');
+        errEl.textContent = '';
+        errEl.classList.remove('visible');
+
+        if (state.newDescEditor) { state.newDescEditor.destroy(); state.newDescEditor = null; }
+        const el = document.getElementById('new-editor-description');
+        el.innerHTML = '';
+        state.newDescEditor = createEditor(el, '', '200px');
+
+        document.getElementById('new-issue-modal-overlay').classList.remove('hidden');
+        setTimeout(() => document.getElementById('new-field-id').focus(), 80);
+    });
+
+    function closeNewIssueModal() {
+        document.getElementById('new-issue-modal-overlay').classList.add('hidden');
+        if (state.newDescEditor) { state.newDescEditor.destroy(); state.newDescEditor = null; }
+    }
+
+    document.getElementById('new-issue-modal-close').addEventListener('click', closeNewIssueModal);
+    document.getElementById('new-issue-modal-cancel').addEventListener('click', closeNewIssueModal);
+    document.getElementById('new-issue-modal-overlay').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeNewIssueModal();
+    });
+
+    document.getElementById('new-issue-modal-save').addEventListener('click', async () => {
+        const errEl = document.getElementById('new-issue-form-error');
+        errEl.classList.remove('visible');
+
+        const id = document.getElementById('new-field-id').value.trim();
+        if (!id) {
+            errEl.textContent = 'ID is required.';
+            errEl.classList.add('visible');
+            document.getElementById('new-field-id').focus();
+            return;
+        }
+        if (/[/\\.]+/.test(id)) {
+            errEl.textContent = 'ID cannot contain slashes or dots.';
+            errEl.classList.add('visible');
+            return;
+        }
+
+        const assignee = document.getElementById('new-field-assignee').value.trim() || 'UNKNOWN';
+        const priority = document.getElementById('new-field-priority').value.trim() || 'Normal';
+        const title = document.getElementById('new-field-title').value.trim() || 'UNKNOWN';
+        const description = state.newDescEditor ? state.newDescEditor.getMarkdown() : '';
+
+        if (hasH1(description)) {
+            errEl.textContent = 'Description must not contain H1 headings (lines starting with "# ").';
+            errEl.classList.add('visible');
+            return;
+        }
+
+        try {
+            await apiPost('/api/issue/create', { status: state.activeTab, id, assignee, priority, title, description });
+            closeNewIssueModal();
+            showToast(`Issue "${id}" created.`, 'success');
+            await doRefresh();
+        } catch (e) {
+            errEl.textContent = e.message;
+            errEl.classList.add('visible');
+        }
+    });
+
+    // ── New Status ────────────────────────────────────────────────────────────────
+    document.getElementById('btn-new-status').addEventListener('click', async () => {
+        const existing = state.statuses.map(s => s.name);
+        const name = await showPrompt('New Status', 'Status folder name:', '', val => {
+            if (!val) return 'Name is required.';
+            if (val.startsWith('-')) return 'Name cannot start with a dash.';
+            if (/^\s/.test(val)) return 'Name cannot start with whitespace.';
+            if (/[/\\]/.test(val)) return 'Name cannot contain slashes.';
+            if (existing.includes(val)) return `"${val}" already exists.`;
+            return null;
+        });
+        if (!name) return;
+        try {
+            await apiPost('/api/status/create', { name });
+            showToast(`Status "${name}" created.`, 'success');
+            state.activeTab = name;
+            await doRefresh();
+        } catch (e) {
+            showToast(`Error: ${e.message}`, 'error');
+        }
+    });
+
+    // ── Rename Status ─────────────────────────────────────────────────────────────
+    async function onRenameStatus(oldName) {
+        const existing = state.statuses.map(s => s.name).filter(n => n !== oldName);
+        const newName = await showPrompt(`Rename "${oldName}"`, 'New name:', oldName, val => {
+            if (!val) return 'Name is required.';
+            if (val.startsWith('-')) return 'Name cannot start with a dash.';
+            if (/^\s/.test(val)) return 'Name cannot start with whitespace.';
+            if (/[/\\]/.test(val)) return 'Name cannot contain slashes.';
+            if (existing.includes(val)) return `"${val}" already exists.`;
+            return null;
+        });
+        if (!newName || newName === oldName) return;
+        try {
+            await apiPost('/api/status/rename', { oldName, newName });
+            if (state.activeTab === oldName) state.activeTab = newName;
+            showToast(`Renamed to "${newName}".`, 'success');
+            await doRefresh();
+        } catch (e) {
+            showToast(`Error: ${e.message}`, 'error');
+        }
+    }
+
+    // ── Delete Issue ──────────────────────────────────────────────────────────────
+    async function onDeleteIssue(id, status) {
+        try {
+            await apiPost('/api/issue/delete', { id, status });
+            showToast(`Issue "${id}" deleted.`, 'success');
+            await doRefresh();
+        } catch (e) {
+            showToast(`Error deleting issue: ${e.message}`, 'error');
+        }
+    }
+
+    // ── Move Issue (drag & drop) ──────────────────────────────────────────────────
+    async function onMoveIssue(id, fromStatus, toStatus) {
+        try {
+            await apiPost('/api/issue/move', { id, fromStatus, toStatus });
+            showToast(`Moved "${id}" → "${toStatus}".`, 'success');
+            await doRefresh();
+        } catch (e) {
+            showToast(`Error moving issue: ${e.message}`, 'error');
+        }
+    }
+
+    // ── Refresh button ────────────────────────────────────────────────────────────
+    document.getElementById('btn-refresh').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-refresh');
+        btn.textContent = '↻ Refreshing…';
+        btn.disabled = true;
+        await doRefresh();
+        btn.textContent = '↻ Refresh';
+        btn.disabled = false;
+        scheduleAutoRefresh();
+    });
+
+    // ── Init ──────────────────────────────────────────────────────────────────────
+    (async function init() {
+        await doRefresh();
+        scheduleAutoRefresh();
+    })();
+</script>
+</body>
+</html>
